@@ -5,9 +5,8 @@ conn = sqlite3.connect('blogdatabase.db')
 c = conn.cursor()
 
 c.execute(""" Create table if not exists users (
-                    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT PRIMARY KEY,
                     name TEXT,
-                    email TEXT,
                     password TEXT,
                     create_time DATETIME,
                     update_time DATETIME) """)
@@ -16,15 +15,15 @@ c.execute(""" Create table if not exists article (
                     article_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title TEXT,
                     content TEXT,
-                    user_id INTEGER,
+                    email TEXT,
                     create_time DATETIME,
                     update_time DATETIME,
-                    FOREIGN KEY (user_id) REFERENCES users(user_id)) """)
+                    FOREIGN KEY (email) REFERENCES users(email)) """)
 
 c.execute(""" Create table if not exists comment (
                     comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     comment_content TEXT,
-                    user TEXT,
+                    email TEXT,
                     article_id INTEGER,
                     create_time DATETIME,
                     update_time DATETIME,
