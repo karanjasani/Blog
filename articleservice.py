@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, make_response, g
+from flask import Flask, jsonify, request, Response, g
 import sqlite3
 from flask_api import status
 import datetime
@@ -81,13 +81,14 @@ def postarticle():
             c.execute("select article_id from article order by create_time desc limit 1")
             row = c.fetchone()
             response = Response(status=201, mimetype='application/json')
-            resp.headers['location'] = 'http://127.0.0.1:5000/articles/'+row[0]
+            path = "http://127.0.0.1:5000/articles/"+str(row[0])
+            response.headers['location'] = path
 
         except sqlite3.Error as er:
                 print(er)
                 response = Response(status=409, mimetype='application/json')
 
-        return jsonify(message)
+        return response
 
 @app.route("/articles/<id>", methods=['GET'])
 def getarticle(id):
@@ -102,7 +103,6 @@ def getarticle(id):
             if row is not None:
                 return jsonify(row)
             else:
-
                 response = Response(status=404, mimetype='application/json')
 
         except sqlite3.Error as er:
@@ -163,8 +163,8 @@ def deletearticle():
 
     return response
 
-@app.route("/retriverecentarticle", methods=['GET'])
-def retriverecentarticle():
+@app.route("/recentarticle", methods=['GET'])
+def recentarticle():
     try:
         db = get_db()
         db.row_factory = dict_factory
@@ -184,6 +184,38 @@ def retriverecentarticle():
 
     return response
 
+@app.route("/metaarticle", methods=['GET'])
+def metaarticle():
+    try:
+        db = get_db()
+        db.row_factory = dict_factory
+        c = db.cursor()
+        recent = request.args.get('recent')
+        c.execute("select title, content, email, create_time from article order by create_time desc limit (:recent)", {"recent":recent})
+        recent_articles = c.fetchall()
+        recent_articles_length = len(recent_articles)
+        return jsonify(recent_articles)
+
+        if(recent_articles_length == 0):
+            response = Response(status=404, mimetype='application/json')
+
+    except sqlite3.Error as er:
+            print(er)
+            response = Response(status=409, mimetype='application/json')
+
+    return response
+
+
+
+@app.route("/display", methods=['POST'])
+def display():
+    db = get_db()
+    c = db.cursor()
+    message = {}
+    c.execute("select * from article")
+    row = c.fetchall()
+
+    return jsonify(row)
 
 
 

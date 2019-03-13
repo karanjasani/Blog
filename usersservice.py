@@ -62,18 +62,8 @@ def verify(username, password):
             if (sha256_crypt.verify(password,p)):
                 return True
             else:
-                message = {
-                    'status': 201,
-                    'mesg': 'Password does not match: ' + request.url,
-                }
-                print(message)
                 return False
         else:
-            message = {
-                'status': 201,
-                'mesg': 'User does not match: ' + request.url,
-            }
-            print(message)
             return False
 
     except sqlite3.Error as er:
