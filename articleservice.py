@@ -77,8 +77,7 @@ def postarticle():
 
             c.execute("insert into article (title, content, email, create_time, update_time) values (?,?,?,?,?)",
                         [details['title'], details['content'], email, datetime.datetime.now(), datetime.datetime.now() ])
-            db.commit()
-            c.execute("select article_id from article order by create_time desc limit 1")
+            db.commit()a
             row = c.fetchone()
             response = Response(status=201, mimetype='application/json')
             path = "http://127.0.0.1:5000/articles/"+str(row[0])
@@ -119,7 +118,7 @@ def editarticle():
         try:
             db = get_db()
             c = db.cursor()
-            id = request.args.get('id')
+            id = request.args.get('articleid')
             email = request.authorization.username
             details = request.get_json()
 
@@ -148,14 +147,14 @@ def deletearticle():
         try:
             db = get_db()
             c = db.cursor()
-            id = request.args.get('id')
+            id = request.args.get('articleid')
             email = request.authorization.username
             c.execute("delete from article where article_id=(:articleid) and email=(:email)",{"email":email,"articleid":id})
             db.commit()
             if (c.rowcount == 1):
                 db.commit()
                 response = Response(status=200, mimetype='application/json')
-            else:
+            else:m
                 response = Response(status=404, mimetype='application/json')
         except sqlite3.Error as er:
                 print(er)

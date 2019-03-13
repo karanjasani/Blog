@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, make_response, g
+from flask import Flask, jsonify, request,Response, g
 import sqlite3
 from flask_api import status
 import datetime
@@ -69,12 +69,12 @@ def addcomment(articleid):
             if (articles_length == 1):
                 if (author == ""):
                     c.execute("insert into comment (comment_content, email, article_id, create_time, update_time) values (?,?,?,?,?)",
-                                    [details['comment_content'], email, details['articleid'],datetime.datetime.now(),datetime.datetime.now()])
+                                    [details['comment_content'], email, articleid, datetime.datetime.now(),datetime.datetime.now()])
                     db.commit()
 
                 else:
                     c.execute("insert into comment (comment_content, email, article_id, create_time, update_time) values (?,?,?,?,?)",
-                                    [details['comment_content'], author, details['articleid'],datetime.datetime.now(),datetime.datetime.now()])
+                                    [details['comment_content'], author, articleid, datetime.datetime.now(),datetime.datetime.now()])
                     db.commit()
                 c.execute("select comment_id from comments order by update_time desc limit 1")
                 row = c.fetchone()
@@ -90,21 +90,23 @@ def addcomment(articleid):
 
     return response
 
-@app.route("articles/<int:articleid>/comments/countcomment", methods='GET')
+@app.route("/articles/<int:articleid>/comments/countcomment", methods='GET')
 def countcomment(articleid):
     try:
         db = get_db()
         c = db.cursor()
 
         c.execute("select count(*) from comment where article_id=(:articleid)",{"articleid":articleid})
-        comment_count = c.fetchone()
-        message = {
-            "Number of comments :": comment_count,
-        }
+        count_comments = c.fetchall()
+        count _comments_length = len(count_comments)
+        return jsonify(count_comments)
+        if(count_comments_length == 0):
+            response = Response(status=404, mimetype='application/json')
+
     except sqlite3.Error as er:
             print(er)
 
-    return jsonify(message)
+    return response
 
 @app.route("/deletecomment", methods='DELETE')
 @app.login_required
@@ -147,3 +149,6 @@ def recentcomments(articleid):
             response = Response(status=409, mimetype='application/json')
 
     return response
+
+if __name__ == '__main__':
+    app.run(debug=True)

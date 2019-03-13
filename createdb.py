@@ -18,7 +18,8 @@ c.execute(""" Create table if not exists article (
                     email TEXT,
                     create_time DATETIME,
                     update_time DATETIME,
-                    FOREIGN KEY (email) REFERENCES users(email)) """)
+                    FOREIGN KEY (email) REFERENCES users(email))
+                    NO DELETE CASCADE """)
 
 c.execute(""" Create table if not exists comment (
                     comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +28,8 @@ c.execute(""" Create table if not exists comment (
                     article_id INTEGER,
                     create_time DATETIME,
                     update_time DATETIME,
-                    FOREIGN KEY (article_id) REFERENCES article(article_id)) """)
+                    FOREIGN KEY (article_id) REFERENCES article(article_id))
+                    NO DELETE CASCADE """)
 
 c.execute(""" Create table if not exists tag_head (
                     tag_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +43,8 @@ c.execute(""" Create table if not exists tag_detail (
                     tags TEXT,
                     create_time DATETIME,
                     update_time DATETIME,
-                    FOREIGN KEY (article_id) REFERENCES article(article_id)) """)
+                    FOREIGN KEY (article_id) REFERENCES article(article_id))
+                    NO DELETE CASCADE """)
 
 conn.commit()
 
