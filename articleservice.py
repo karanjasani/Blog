@@ -24,6 +24,12 @@ def close_connection(exception):
         print("database closed")
         db.close()
 
+def dict_factory(cursor, row):
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
+
 @auth.verify_password
 def verify(username, password):
     print("inside verify")
@@ -63,152 +69,120 @@ def verify(username, password):
 @auth.login_required
 def postarticle():
     if (request.method == 'POST'):
-        db = get_db()
-        c = db.cursor()
-        details = request.get_json()
-        update_time = datetime.datetime.now()
-        email = request.authorization.username
-
         try:
-            #c.execute("select email from users where email=(:email)", {'email':email})
-            #row = c.fetchone()
-            #if row is not None:
-            #userid = row[0]
+            db = get_db()
+            c = db.cursor()
+            details = request.get_json()
+            email = request.authorization.username
+
             c.execute("insert into article (title, content, email, create_time, update_time) values (?,?,?,?,?)",
-                        [details['title'], details['content'], email, update_time, update_time ])
+                        [details['title'], details['content'], email, datetime.datetime.now(), datetime.datetime.now() ])
             db.commit()
-            message = {
-                'status': 201,
-                'message': 'Article Posted: ' + request.url,
-            }
-            '''
-            else:
-                message = {
-                    'status': 201,
-                    'message': 'User or Password does not match ' + request.url,
-                }
-            '''
+            c.execute("select article_id from article order by create_time desc limit 1")
+            row = c.fetchone()
+            response = Response(status=201, mimetype='application/json')
+            resp.headers['location'] = 'http://127.0.0.1:5000/articles/'+row[0]
+
         except sqlite3.Error as er:
                 print(er)
+                response = Response(status=409, mimetype='application/json')
 
         return jsonify(message)
 
-@app.route("/getarticle", methods=['GET'])
-def getarticle():
+@app.route("/articles/<id>", methods=['GET'])
+def getarticle(id):
     if (request.method == 'GET'):
-        db = get_db()
-        c = db.cursor()
-        message = {}
-        id = request.args.get('id')
         try:
+            db = get_db()
+            db.row_factory = dict_factory
+            c = db.cursor()
+
             c.execute("select article_id, title, content, email, create_time, update_time from article where article_id=(:articleid)",{'articleid':id})
             row = c.fetchone()
             if row is not None:
-                message = {
-                    'Article id': row[0],
-                    'Title': row[1],
-                    'Content': row[2],
-                    'User id': row[3],
-                    'create time': row[4],
-                    'Update time' : row[5],
-                }
+                return jsonify(row)
             else:
-                message = {
-                    'message':'article does not exists'
-                }
+
+                response = Response(status=404, mimetype='application/json')
+
         except sqlite3.Error as er:
                 print(er)
+                response = Response(status=409, mimetype='application/json')
 
-    return jsonify(message)
+    return response
 
 
-@app.route("/editarticle", methods=['POST'])
+@app.route("/editarticle", methods=['PATCH'])
 @auth.login_required
 def editarticle():
-    if (request.method == 'POST'):
-        db = get_db()
-        c = db.cursor()
-        id = request.args.get('id')
-        email = request.authorization.username
-        details = request.get_json()
-        #update_time = datetime.datetime.now()
-        message = {}
+    if (request.method == 'PATCH'):
         try:
+            db = get_db()
+            c = db.cursor()
+            id = request.args.get('id')
+            email = request.authorization.username
+            details = request.get_json()
+
             for x in details:
                 sql = "update article set "+x+"=(:key), update_time=(:updatetime) where article_id=(:id) and email=(:email)"
                 c.execute(sql, {"key":details[x],"updatetime":datetime.datetime.now(), "id":id, "email":email})
                 if (c.rowcount == 1):
                     db.commit()
-                    message = {
-                        'message':'article updated'
-                    }
+                    response = Response(status=200, mimetype='application/json')
+
                 else:
-                    message = {
-                        'message':'article not found for that user'
-                    }
+                    response = Response(status=404, mimetype='application/json')
 
         except sqlite3.Error as er:
                 print(er)
+                response = Response(status=409, mimetype='application/json')
 
-    return jsonify(message)
+    return response
 
 
 
-@app.route("/deletearticle", methods=['GET'])
+@app.route("/deletearticle", methods=['DELETE'])
 @auth.login_required
 def deletearticle():
-    if (request.method == 'GET'):
-        db = get_db()
-        c = db.cursor()
-        message = {}
-        id = request.args.get('id')
-        email = request.authorization.username
-
+    if (request.method == 'DELETE'):
         try:
+            db = get_db()
+            c = db.cursor()
+            id = request.args.get('id')
+            email = request.authorization.username
             c.execute("delete from article where article_id=(:articleid) and email=(:email)",{"email":email,"articleid":id})
             db.commit()
             if (c.rowcount == 1):
                 db.commit()
-                message = {
-                    'message':'article deleted'
-                }
+                response = Response(status=200, mimetype='application/json')
             else:
-                message = {
-                    'message':'Article not found for that user'
-                }
+                response = Response(status=404, mimetype='application/json')
         except sqlite3.Error as er:
                 print(er)
+                response = Response(status=409, mimetype='application/json')
 
-    return jsonify(message)
-
-def dict_factory(cursor, row):
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
+    return response
 
 @app.route("/retriverecentarticle", methods=['GET'])
 def retriverecentarticle():
-    db = get_db()
-    db.row_factory = dict_factory
-    c = db.cursor()
-    message = {}
-    recent = request.args.get('recent')
-
     try:
+        db = get_db()
+        db.row_factory = dict_factory
+        c = db.cursor()
+        recent = request.args.get('recent')
         c.execute("select * from article order by create_time desc limit (:recent)", {"recent":recent})
         recent_articles = c.fetchall()
         recent_articles_length = len(recent_articles)
+        return jsonify(recent_articles)
 
         if(recent_articles_length == 0):
-            recent_articles = {
-                'message':'No articles found'
-            }
+            response = Response(status=404, mimetype='application/json')
 
     except sqlite3.Error as er:
             print(er)
+            response = Response(status=409, mimetype='application/json')
 
-    return jsonify(recent_articles)
+    return response
 
 
 

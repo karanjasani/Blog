@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, make_response, g
+from flask import Flask, jsonify, request, Response, g
 import sqlite3, json
 from flask_api import status
 import datetime
@@ -24,36 +24,36 @@ def close_connection(exception):
         print("database closed")
         db.close()
 
-@app.route("/create", methods=['POST'])
+@app.route("/createuser", methods=['POST'])
 def createuser():
     if (request.method == 'POST'):
-        details = request.get_json()
-        db = get_db()
-        c = db.cursor()
-        update_time = datetime.datetime.now()
         try:
+            details = request.get_json()
+            db = get_db()
+            c = db.cursor()
+            update_time = datetime.datetime.now()
+
             password = sha256_crypt.encrypt((str(details['password'])))
             c.execute("insert into users (name, email, password, create_time, update_time) values (?,?,?,?,?)",
                     [details['name'], details['email'], password, update_time, update_time ])
             db.commit()
 
-            message = {
-                'status': 201,
-                'message': 'Created: ' + request.url,
-            }
+            response = Response(status=201, mimetype='application/json')
+
         except sqlite3.Error as er:
             print(er)
-            return jsonify({'Error Message': 'Conflict'}), 409
+            response = Response(status=409, mimetype='application/json')
 
-    return jsonify(message)
+    return response
 
 @auth.verify_password
 def verify(username, password):
     print("inside verify")
-    db = get_db()
-    c = db.cursor()
-    message = {}
     try:
+        db = get_db()
+        c = db.cursor()
+        message = {}
+
         c.execute("select password from users where email=(:email)", {'email':username})
         row = c.fetchone()
         if row is not None:
@@ -99,53 +99,45 @@ def display():
 
     return jsonify(row)
 
-@app.route("/deleteuser", methods=['POST'])
+@app.route("/deleteuser", methods=['DELETE'])
 @auth.login_required
 def deleteuser():
-    db = get_db()
-    c = db.cursor()
-    message = {}
-    print("Inside delete user function")
-    details = request.get_json()
-    email = request.authorization.username
     try:
-        c.execute("delete from users where email=(:email)",{'email':details['email']})
+        db = get_db()
+        c = db.cursor()
+        email = request.authorization.username
+
+        c.execute("delete from users where email=(:email)",{'email':email})
         db.commit()
-        print("Record deleted")
-        message = {
-            'status': 201,
-            'mesg': 'User Deleted: ' + request.url,
-        }
+
+        response = Response(status=200, mimetype='application/json')
 
     except sqlite3.Error as er:
             print(er)
+            response = Response(status=409, mimetype='application/json')
 
-    return jsonify(message)
+    return response
 
-@app.route("/updatepassword", methods=['POST'])
+@app.route("/updatepassword", methods=['PATCH'])
 @auth.login_required
 def updatepassword():
-    db = get_db()
-    c = db.cursor()
-    print("inside update password")
-    details = request.get_json()
-    new_password = sha256_crypt.encrypt((str(details['new_password'])))
-    message = {}
-    email = request.authorization.username
-    update_time = datetime.datetime.now()
     try:
+        db = get_db()
+        c = db.cursor()
+        details = request.get_json()
+        new_password = sha256_crypt.encrypt((str(details['new_password'])))
+        email = request.authorization.username
+        update_time = datetime.datetime.now()
+
         c.execute("update users set password=(:password), update_time=(:updatetime) where email=(:email)",{'email':email, 'password':new_password, 'updatetime':update_time})
         db.commit()
-        print("password updated")
-        message = {
-            'status': 201,
-            'message': 'Password Updated: ' + request.url,
-        }
+        response = Response(status=200, mimetype='application/json')
 
     except sqlite3.Error as er:
         print(er)
+        response = Response(status=409, mimetype='application/json')
 
-    return jsonify(message)
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True)

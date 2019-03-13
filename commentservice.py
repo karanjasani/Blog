@@ -67,26 +67,30 @@ def verify(username, password):
 @app.login_required
 def addcomment():
     if (request.method == 'POST'):
+        try:
         db = get_db()
         c = db.cursor()
         details = request.get_json()
         email = request.authorization.username
         update_time = datetime.datetime.now()
 
-        c.execute("select * from article where article_id=(:articleid)", {'articleid':articleid})
+        c.execute("select * from article where article_id=(:articleid)", {'articleid':details['articleid']})
         articles = c.fetchall()
         articles_length = len(articles)
         if (articles_length == 1):
             if (author == ""):
-                c.execute("insert into comment (comment_content, email, article_id, create_time, update_time) values (?,?,?,?,?)", [details['comment_content'], author, details['articleid'],datetime.datetime.now(),datetime.datetime.now()])
+                c.execute("insert into comment (comment_content, email, article_id, create_time, update_time) values (?,?,?,?,?)",
+                                    [details['comment_content'], author, details['articleid'],datetime.datetime.now(),datetime.datetime.now()])
                 db.commit()
+                response = Response(status=201, mimetype='application/json')
+                response.headers['location'] = 'http://127.0.0.1:5000/articles/'+articleid+'/comments/'+commentid
             else:
-                c.execute("insert into comment (comment_content, email, article_id, create_time, update_time) values (?,?,?,?,?)", [details['comment_content'], email, details['articleid'],datetime.datetime.now(),datetime.datetime.now()])
+                c.execute("insert into comment (comment_content, email, article_id, create_time, update_time) values (?,?,?,?,?)",
+                                    [details['comment_content'], email, details['articleid'],datetime.datetime.now(),datetime.datetime.now()])
                 db.commit()
-            message = {
-                'status': 201,
-                'message': 'Comment Posted: ' + request.url,
-            }
+            response = Response(status=201, mimetype='application/json')
+            response.headers['location'] = 'http://127.0.0.1:5000/articles/'+articleid+'/comments/'+commentid
+            
         else:
             message = {
                 'status': 201,
@@ -103,7 +107,7 @@ def addcomment():
 @app.login_required
 def countcomment():
     db = get_db()
-    c = db.cursor() 
+    c = db.cursor()
     id = request.args.get('id')
 
     try:
