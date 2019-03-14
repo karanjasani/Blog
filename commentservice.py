@@ -5,6 +5,7 @@ import datetime
 from http import HTTPStatus
 from flask_httpauth import HTTPBasicAuth
 from passlib.hash import sha256_crypt
+from functools import wraps
 
 app = Flask(__name__)
 auth = HTTPBasicAuth()
@@ -15,6 +16,8 @@ def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
+        db.cursor().execute("PRAGMA foreign_keys = ON")
+        db.commit()
     return db
 
 @app.teardown_appcontext
@@ -24,12 +27,18 @@ def close_connection(exception):
         print("database closed")
         db.close()
 
+def dict_factory(cursor, row):
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
+
 @auth.verify_password
 def verify(username, password):
     db = get_db()
     c = db.cursor()
     message = {}
-    global author = ""
+    global author
     try:
         c.execute("select password from users where email=(:email)", {'email':username})
         row = c.fetchone()
@@ -40,10 +49,10 @@ def verify(username, password):
                 return True
             else:
                 author = "Anonymous Coward"
-                #return False
+                return False
         else:
             author = "Anonymous Coward"
-            #return False
+            return False
 
     except sqlite3.Error as er:
         print(er)
@@ -51,9 +60,32 @@ def verify(username, password):
     #author = "Anonymous Coward"
     return True
 
+def check_auth(username, password):
+    return verify(username,password)
 
-@app.route("/articles/<int:articleid>/addcomment", methods='POST')
-@app.login_required
+def authenticate():
+    """Sends a 401 response that enables basic auth"""
+    # return "invalid"
+
+    resp = Response(status=404, mimetype='application/json')
+
+
+    return resp
+
+def author(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        global author
+        if not auth or not check_auth(auth.username, auth.password):
+            author = 'Anonymous Coward'
+        else:
+            author= auth.username
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route("/articles/<int:articleid>/addcomment", methods=['POST'])
+@author
 def addcomment(articleid):
     if (request.method == 'POST'):
         try:
@@ -63,26 +95,26 @@ def addcomment(articleid):
             email = request.authorization.username
             update_time = datetime.datetime.now()
 
-            c.execute("select * from article where article_id=(:articleid)", {'articleid':articleid})
-            articles = c.fetchall()
-            articles_length = len(articles)
-            if (articles_length == 1):
-                if (author == ""):
-                    c.execute("insert into comment (comment_content, email, article_id, create_time, update_time) values (?,?,?,?,?)",
+            #c.execute("select * from article where article_id=(:articleid)", {'articleid':articleid})
+            #articles = c.fetchall()
+            #articles_length = len(articles)
+            #if (articles_length == 1):
+            if (author == ""):
+                c.execute("insert into comment (comment_content, email, article_id, create_time, update_time) values (?,?,?,?,?)",
                                     [details['comment_content'], email, articleid, datetime.datetime.now(),datetime.datetime.now()])
-                    db.commit()
-
-                else:
-                    c.execute("insert into comment (comment_content, email, article_id, create_time, update_time) values (?,?,?,?,?)",
-                                    [details['comment_content'], author, articleid, datetime.datetime.now(),datetime.datetime.now()])
-                    db.commit()
-                c.execute("select comment_id from comments order by update_time desc limit 1")
-                row = c.fetchone()
-                response = Response(status=201, mimetype='application/json')
-                response.headers['location'] = 'http://127.0.0.1:5000/articles/'+str(details['articleid'])+'/comments/'+str(row[0])
+                db.commit()
 
             else:
-                response = Response(status=404, mimetype='application/json')
+                c.execute("insert into comment (comment_content, email, article_id, create_time, update_time) values (?,?,?,?,?)",
+                                    [details['comment_content'], author, articleid, datetime.datetime.now(),datetime.datetime.now()])
+                db.commit()
+                c.execute("select comment_id from comment order by update_time desc limit 1")
+                row = c.fetchone()
+                response = Response(status=201, mimetype='application/json')
+                response.headers['location'] = 'http://127.0.0.1:5000/articles/'+str(articleid)+'/comments/'+str(row[0])
+
+            #else:
+                #response = Response(status=404, mimetype='application/json')
 
         except sqlite3.Error as er:
             print(er)
@@ -90,7 +122,7 @@ def addcomment(articleid):
 
     return response
 
-@app.route("/articles/<int:articleid>/comments/countcomment", methods='GET')
+@app.route("/articles/<int:articleid>/comments/countcomment", methods=['GET'])
 def countcomment(articleid):
     try:
         db = get_db()
@@ -98,7 +130,7 @@ def countcomment(articleid):
 
         c.execute("select count(*) from comment where article_id=(:articleid)",{"articleid":articleid})
         count_comments = c.fetchall()
-        count _comments_length = len(count_comments)
+        count_comments_length = len(count_comments)
         return jsonify(count_comments)
         if(count_comments_length == 0):
             response = Response(status=404, mimetype='application/json')
@@ -108,8 +140,8 @@ def countcomment(articleid):
 
     return response
 
-@app.route("/deletecomment", methods='DELETE')
-@app.login_required
+@app.route("/deletecomment", methods=['DELETE'])
+@auth.login_required
 def deletecomment():
     try:
         db = get_db()
@@ -128,15 +160,13 @@ def deletecomment():
             response = Response(status=409, mimetype='application/json')
     return response
 
-@app.route("/articles/<int:articleid>/comments/recentcomments", methods='DELETE')
-@app.login_required
+@app.route("/articles/<int:articleid>/comments/recentcomments", methods=['GET'])
 def recentcomments(articleid):
     try:
         db = get_db()
-        c = db.cursor()
         db.row_factory = dict_factory
+        c = db.cursor()
         recent = request.args.get('recent')
-
         c.execute("select comment_content from comment where article_id=(:articleid) order by update_time desc limit (:recent)", {"articleid":articleid, "recent":recent})
         recent_comments = c.fetchall()
         recent_comments_length = len(recent_comments)

@@ -15,6 +15,8 @@ def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
+        db.cursor().execute("PRAGMA foreign_keys = ON")
+        db.commit()
     return db
 
 @app.teardown_appcontext
@@ -77,7 +79,8 @@ def postarticle():
 
             c.execute("insert into article (title, content, email, create_time, update_time) values (?,?,?,?,?)",
                         [details['title'], details['content'], email, datetime.datetime.now(), datetime.datetime.now() ])
-            db.commit()a
+            db.commit()
+            c.execute("select article_id from article order by update_time desc limit 1")
             row = c.fetchone()
             response = Response(status=201, mimetype='application/json')
             path = "http://127.0.0.1:5000/articles/"+str(row[0])
@@ -154,7 +157,7 @@ def deletearticle():
             if (c.rowcount == 1):
                 db.commit()
                 response = Response(status=200, mimetype='application/json')
-            else:m
+            else:
                 response = Response(status=404, mimetype='application/json')
         except sqlite3.Error as er:
                 print(er)

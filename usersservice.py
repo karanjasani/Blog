@@ -15,6 +15,8 @@ def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
+        db.cursor().execute("PRAGMA foreign_keys = ON")
+        db.commit()
     return db
 
 @app.teardown_appcontext
@@ -76,7 +78,7 @@ def display():
     db = get_db()
     c = db.cursor()
     message = {}
-    c.execute("select name, email from users")
+    c.execute("select * from users")
     row = c.fetchall()
 
     #row = c.execute("select * from users")
@@ -97,6 +99,8 @@ def deleteuser():
         c = db.cursor()
         email = request.authorization.username
 
+        c.execute("PRAGMA foreign_keys = ON")
+        db.commit()
         c.execute("delete from users where email=(:email)",{'email':email})
         db.commit()
 
