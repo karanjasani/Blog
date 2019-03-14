@@ -87,7 +87,7 @@ def addTags():
                 c.execute("SELECT tag_id FROM tag_head WHERE tag_name=?",(tag,))
                 rec2=c.fetchall()
                 tid=rec2[0][0]
-                c.execute("INSERT INTO tag_detail (article_id,tags,create_time,update_time) VALUES (?,?,?,?)",(articleId,tid,datetime.datetime.now(), datetime.datetime.now()))
+                c.execute("INSERT INTO tag_detail (article_id,tag_id,create_time,update_time) VALUES (?,?,?,?)",(articleId,tid,datetime.datetime.now(), datetime.datetime.now()))
             else:
                 print("inside else")
                 tid=rec[0][0]
@@ -122,7 +122,7 @@ def deletetag():
             print(tag)
             #for tag in tags:
             print("in for loop" + str(artid))
-            c.execute("DELETE FROM tag_detail WHERE article_id=? AND tags IN (SELECT tag_id FROM tag_head WHERE tag_name=?)",(artid,str(tag),))
+            c.execute("DELETE FROM tag_detail WHERE article_id=? AND tag_id IN (SELECT tag_id FROM tag_head WHERE tag_name=?)",(artid,str(tag),))
             db.commit()
             if (c.rowcount == 1):
                 db.commit()
@@ -144,6 +144,7 @@ def getarticle(artid):
             c = db.cursor()
             c.execute("SELECT * FROM tag_head WHERE tag_id IN (SELECT tag_id FROM tag_detail WHERE article_id=?)",(artid,))
             row = c.fetchall()
+            db.commit()
             if row is not None:
                 return jsonify(row)
             else:
@@ -154,6 +155,27 @@ def getarticle(artid):
                 response = Response(status=409, mimetype='application/json')
 
     return response
+
+# get all the articles with the given tag
+@app.route('/tag/getarticles/<tag>',methods=['GET'])
+def getart(tag):
+    try:
+        db = get_db()
+        db.row_factory = dict_factory
+        c = db.cursor()
+        c.execute("SELECT article_id FROM tag_detail WHERE tag_id IN (SELECT tag_id FROM tag_head WHERE tag_name=?)",(tag,))
+        row = c.fetchall()
+        db.commit()
+        if row is not None:
+            return jsonify(row)
+        else:
+            response = Response(status=404, mimetype='application/json')
+
+    except sqlite3.Error as er:
+            print(er)
+            response = Response(status=409, mimetype='application/json')
+
+    return response    
 
 if __name__ == '__main__':
     app.run(debug=True)
