@@ -24,6 +24,12 @@ def close_connection(exception):
         print("database closed")
         db.close()
 
+def dict_factory(cursor, row):
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
+
 @auth.verify_password
 def verify(username, password):
     print("inside verify")
@@ -128,7 +134,26 @@ def deletetag():
                 response = Response(status=409, mimetype='application/json')
 
     return response
+#get all the tags related to article by article ID
+@app.route("/tag/gettag/<artid>", methods=['GET'])
+def getarticle(artid):
+    if (request.method == 'GET'):
+        try:
+            db = get_db()
+            db.row_factory = dict_factory
+            c = db.cursor()
+            c.execute("SELECT * FROM tag_head WHERE tag_id IN (SELECT tag_id FROM tag_detail WHERE article_id=?)",(artid,))
+            row = c.fetchall()
+            if row is not None:
+                return jsonify(row)
+            else:
+                response = Response(status=404, mimetype='application/json')
 
+        except sqlite3.Error as er:
+                print(er)
+                response = Response(status=409, mimetype='application/json')
+
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True)

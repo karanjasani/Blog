@@ -99,7 +99,6 @@ def getarticle(id):
             db = get_db()
             db.row_factory = dict_factory
             c = db.cursor()
-
             c.execute("select article_id, title, content, email, create_time, update_time from article where article_id=(:articleid)",{'articleid':id})
             row = c.fetchone()
             if row is not None:
