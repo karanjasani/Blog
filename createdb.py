@@ -41,7 +41,7 @@ c.execute(""" Create table if not exists tag_detail (
                     tag_id INTEGER NOT NULL REFERENCES tag_head(tag_id),
                     create_time DATETIME,
                     update_time DATETIME,
-                    PRIMARY KEY(article_id,tags),
+                    PRIMARY KEY(article_id,tag_id),
                     FOREIGN KEY (article_id) REFERENCES article(article_id)) """)
 
 conn.commit()
