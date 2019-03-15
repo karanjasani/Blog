@@ -149,7 +149,7 @@ def deletecomment():
         commentid = request.args.get('commentid')
         email = request.authorization.username
 
-        c.execute("delete from comment where email=(:email) and comment_id=(:commentid)", {"email":email,"commentid":commentid})
+        c.execute("delete from comment where (email=(:email) and comment_id=(:commentid)) or (email=(:anonymous) and comment_id=(:commentid))", {"email":email,"commentid":commentid, "anonymous":"Anonymous Coward"})
         if (c.rowcount == 1):
             db.commit()
             response = Response(status=200, mimetype='application/json')
@@ -167,12 +167,15 @@ def recentcomments(articleid):
         db.row_factory = dict_factory
         c = db.cursor()
         recent = request.args.get('recent')
+
         c.execute("select comment_content from comment where article_id=(:articleid) order by update_time desc limit (:recent)", {"articleid":articleid, "recent":recent})
         recent_comments = c.fetchall()
         recent_comments_length = len(recent_comments)
-        return jsonify(recent_comments)
+        print(recent_comments_length)
         if(recent_comments_length == 0):
             response = Response(status=404, mimetype='application/json')
+            return response
+        return jsonify(recent_comments)
 
     except sqlite3.Error as er:
             print(er)

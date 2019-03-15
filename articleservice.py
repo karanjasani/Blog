@@ -84,6 +84,8 @@ def postarticle():
             row = c.fetchone()
             response = Response(status=201, mimetype='application/json')
             path = "http://127.0.0.1:5000/articles/"+str(row[0])
+            c.execute("update article set url=(:path) where article_id=(:articleid)", {"path":path, "articleid":row[0]})
+            db.commit()
             response.headers['location'] = path
 
         except sqlite3.Error as er:
@@ -99,6 +101,7 @@ def getarticle(id):
             db = get_db()
             db.row_factory = dict_factory
             c = db.cursor()
+
             c.execute("select article_id, title, content, email, create_time, update_time from article where article_id=(:articleid)",{'articleid':id})
             row = c.fetchone()
             if row is not None:
@@ -192,7 +195,7 @@ def metaarticle():
         db.row_factory = dict_factory
         c = db.cursor()
         recent = request.args.get('recent')
-        c.execute("select title, content, email, create_time from article order by create_time desc limit (:recent)", {"recent":recent})
+        c.execute("select title, email, create_time, url from article order by create_time desc limit (:recent)", {"recent":recent})
         recent_articles = c.fetchall()
         recent_articles_length = len(recent_articles)
         return jsonify(recent_articles)
