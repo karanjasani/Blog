@@ -18,6 +18,7 @@ c.execute(""" Create table if not exists article (
                     email TEXT,
                     create_time DATETIME,
                     update_time DATETIME,
+                    url TEXT,
                     FOREIGN KEY (email) REFERENCES users(email)) """)
 
 c.execute(""" Create table if not exists comment (
@@ -38,9 +39,10 @@ c.execute(""" Create table if not exists tag_head (
 
 c.execute(""" Create table if not exists tag_detail (
                     article_id INTEGER,
-                    tags TEXT,
+                    tag_id INTEGER NOT NULL REFERENCES tag_head(tag_id),
                     create_time DATETIME,
                     update_time DATETIME,
+                    PRIMARY KEY(article_id,tag_id),
                     FOREIGN KEY (article_id) REFERENCES article(article_id)) """)
 
 conn.commit()

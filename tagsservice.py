@@ -21,7 +21,6 @@ def get_db():
 def close_connection(exception):
     db = getattr(g, '_database', None)
     if db is not None:
-        print("database closed")
         db.close()
 
 def dict_factory(cursor, row):
@@ -32,7 +31,6 @@ def dict_factory(cursor, row):
 
 @auth.verify_password
 def verify(username, password):
-    print("inside verify")
     db = get_db()
     c = db.cursor()
     message = {}
@@ -41,7 +39,6 @@ def verify(username, password):
         row = c.fetchone()
         if row is not None:
             p = row[0]
-            print(p)
             if (sha256_crypt.verify(password,p)):
                 return True
             else:
@@ -49,14 +46,12 @@ def verify(username, password):
                     'status': 201,
                     'mesg': 'Password does not match: ' + request.url,
                 }
-                print(message)
                 return False
         else:
             message = {
                 'status': 201,
                 'mesg': 'User does not match: ' + request.url,
             }
-            print(message)
             return False
 
     except sqlite3.Error as er:
@@ -66,7 +61,7 @@ def verify(username, password):
 
 # Add new tags
 @app.route("/tag/addtag", methods=['POST'])
-#@auth.login_required
+@auth.login_required
 def addTags():
     if (request.method == 'POST'):
         db = get_db()
@@ -76,41 +71,48 @@ def addTags():
         email = request.authorization.username
 
         try:
-            tag=details['tag']
+            
+            tag_Details=details['tag'].split(',')
             articleId=details['articleId']
-            c.execute("SELECT tag_id FROM tag_head WHERE tag_name=?",(tag,))
-            rec=c.fetchall()
-            rowsaffected=len(rec) 
-            if rowsaffected == 0:
-                print("inside if")
-                c.execute("INSERT INTO tag_head (tag_name,create_time,update_time) VALUES (?,?,?)",(tag,datetime.datetime.now(), datetime.datetime.now()))
-                c.execute("SELECT tag_id FROM tag_head WHERE tag_name=?",(tag,))
-                rec2=c.fetchall()
-                tid=rec2[0][0]
-                c.execute("INSERT INTO tag_detail (article_id,tag_id,create_time,update_time) VALUES (?,?,?,?)",(articleId,tid,datetime.datetime.now(), datetime.datetime.now()))
-            else:
-                print("inside else")
-                tid=rec[0][0]
-                c.execute("INSERT INTO tag_detail VALUES (?,?,?,?)",(articleId,tid,datetime.datetime.now(), datetime.datetime.now()))
+            c.execute("SELECT article_id FROM article WHERE article_id=?",(articleId,))
+            rec=c.fetchone()
+            #datalen=len(rec)
+            if (rec):
+                for tags in tag_Details:
+                    tag=tags.strip()
+                    c.execute("SELECT tag_id FROM tag_head WHERE tag_name=?",(tag,))
+                    rec=c.fetchall()
+                    rowsaffected=len(rec) 
+                    if rowsaffected == 0:
+                        c.execute("INSERT INTO tag_head (tag_name,create_time,update_time) VALUES (?,?,?)",(tag,datetime.datetime.now(), datetime.datetime.now()))
+                        c.execute("SELECT tag_id FROM tag_head WHERE tag_name=?",(tag,))
+                        rec2=c.fetchall()
+                        tid=rec2[0][0]
+                        c.execute("INSERT INTO tag_detail (article_id,tag_id,create_time,update_time) VALUES (?,?,?,?)",(articleId,tid,datetime.datetime.now(), datetime.datetime.now()))
+                    else:
+                        tid=rec[0][0]
+                        c.execute("INSERT INTO tag_detail VALUES (?,?,?,?)",(articleId,tid,datetime.datetime.now(), datetime.datetime.now()))
 
-            if (c.rowcount == 1):
-                db.commit()
-                response = Response(status=200, mimetype='application/json')
+                    if (c.rowcount == 1):
+                        db.commit()
+                        response = Response(status=201, mimetype='application/json')
 
+                    else:
+                        response = Response(status=404, mimetype='application/json')
             else:
-                response = Response(status=404, mimetype='application/json')
+                response = Response(status=409, mimetype='application/json')            
 
         except sqlite3.Error as er:
             print(er)
             response = Response(status=409, mimetype='application/json')
 
-    return response    
+        return response    
 
 
 #Delete a tag
 
 @app.route("/tag/deletetag", methods=['DELETE'])
-#@auth.login_required
+@auth.login_required
 def deletetag():
     if (request.method == 'DELETE'):
         try:
@@ -119,9 +121,6 @@ def deletetag():
             details = request.get_json()
             artid= details['articleId']
             tag=details['tag']
-            print(tag)
-            #for tag in tags:
-            print("in for loop" + str(artid))
             c.execute("DELETE FROM tag_detail WHERE article_id=? AND tag_id IN (SELECT tag_id FROM tag_head WHERE tag_name=?)",(artid,str(tag),))
             db.commit()
             if (c.rowcount == 1):

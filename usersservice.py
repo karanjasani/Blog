@@ -99,8 +99,6 @@ def deleteuser():
         c = db.cursor()
         email = request.authorization.username
 
-        c.execute("PRAGMA foreign_keys = ON")
-        db.commit()
         c.execute("delete from users where email=(:email)",{'email':email})
         db.commit()
 
